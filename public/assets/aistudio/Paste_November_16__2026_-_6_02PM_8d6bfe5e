@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blue Eighty | Elite Cap & H2H Fantasy Football</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS Client CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .mono-num { font-family: 'JetBrains Mono', monospace; }
+        .tab-btn.active {
+            background-color: #2563EB;
+            color: #FFFFFF;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+        }
+        .pulse-shield {
+            animation: pulse-gold 2s infinite;
+        }
+        @keyframes pulse-gold {
+            0% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(217, 119, 6, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
+        }
+    </style>
+</head>
+<body class="bg-[#F8FAFC] text-[#0F172A] min-h-screen flex flex-col antialiased">
+
+    <!-- TOP HEADER -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-blue-500/20 font-extrabold text-xl">
+                    80
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xl font-extrabold tracking-tight text-slate-900">Blue Eighty</span>
+                        <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Sleeper Projections + Supabase Synced
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium">Weekly $60k Salary Cap • H2H League • Q1 Injury Shield™</p>
+                </div>
+            </div>
+
+            <!-- ACTIVE SLATE & INJURY SIMULATOR -->
+            <div class="flex items-center space-x-4">
+                <div class="bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-800 flex items-center space-x-1">
+                    <span>📅 Active Slate:</span>
+                    <span id="current-slate-label" class="uppercase">Live NFL Week</span>
+                </div>
+                <button onclick="triggerQ1Injury()" class="pulse-shield bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-md flex items-center space-x-1.5 transition">
+                    <span>🚑</span>
+                    <span>Sim Q1 Injury</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- NAVIGATION TABS -->
+    <nav class="bg-white border-b border-slate-200 shadow-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-2 py-3 overflow-x-auto">
+            <button onclick="switchTab('lineup')" id="nav-lineup" class="tab-btn active px-4 py-2 rounded-xl text-sm font-bold flex items-center space-x-2 transition">
+                <span>⚡</span>
+                <span>Weekly Lineup</span>
+            </button>
+            <button onclick="switchTab('matchup')" id="nav-matchup" class="tab-btn px-4 py-2 rounded-xl text-sm font-bold flex items-center space-x-2 text-slate-600 hover:bg-slate-100 transition">
+                <span>🏟️</span>
+                <span>H2H GameCast</span>
+            </button>
+            <button onclick="switchTab('waivers')" id="nav-waivers" class="tab-btn px-4 py-2 rounded-xl text-sm font-bold flex items-center space-x-2 text-slate-600 hover:bg-slate-100 transition">
+                <span>🔍</span>
+                <span>Player Market</span>
+            </button>
+            <button onclick="switchTab('signup')" id="nav-signup" class="tab-btn px-4 py-2 rounded-xl text-sm font-bold flex items-center space-x-2 text-slate-600 hover:bg-slate-100 transition">
+                <span>📝</span>
+                <span>Team Sign-Up (<span id="signups-count">0</span>/12)</span>
+            </button>
+            <button onclick="switchTab('standings')" id="nav-standings" class="tab-btn px-4 py-2 rounded-xl text-sm font-bold flex items-center space-x-2 text-slate-600 hover:bg-slate-100 transition">
+                <span>🏆</span>
+                <span>Standings</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+
+        <!-- ================= TAB 1: WEEKLY LINEUP ($60K CAP) ================= -->
+        <div id="tab-content-lineup" class="space-y-6">
+            <div class="bg-gradient-to-r from-blue-900 to-indigo-900 rounded-3xl p-6 text-white shadow-xl grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div>
+                    <span class="bg-blue-500/30 text-blue-200 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-blue-400/30">Salary Cap Vault ($60,000)</span>
+                    <h2 class="text-3xl font-extrabold mt-2 mono-num" id="hud-remaining">$0 <span class="text-lg font-medium text-blue-300">Remaining</span></h2>
+                    <p class="text-xs text-blue-200 mt-1">Avg Remaining / Empty Slot: <strong id="hud-avg" class="text-white">$0</strong></p>
+                </div>
+                <div class="flex flex-col md:items-end justify-center">
+                    <span class="bg-emerald-500/30 text-emerald-200 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-emerald-400/30">Lineup Projection</span>
+                    <h2 class="text-3xl font-extrabold mt-2 mono-num text-emerald-300" id="hud-total-proj">0.0 <span class="text-lg font-medium text-white">Total Pts</span></h2>
+                    <p class="text-xs text-emerald-200 mt-1">Cap Efficiency: <strong id="hud-efficiency" class="text-white">0.0 pts / $1k</strong></p>
+                </div>
+                <div class="md:col-span-2 flex items-center justify-between pt-2 border-t border-blue-800/60">
+                    <div class="text-xs text-blue-200">
+                        <span>💡 Tip: Auto-Fill Optimal strictly enforces the $60,000 cap with 9 unique value players.</span>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button onclick="autoFillCap()" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center space-x-1.5">
+                            <span>🪄</span>
+                            <span>Auto-Fill Optimal</span>
+                        </button>
+                        <button onclick="resetLineup()" class="bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 px-4 py-2.5 rounded-xl text-xs font-bold transition">
+                            Reset Lineup
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- INJURY SHIELD ALERT BANNER -->
+            <div id="injury-banner" class="hidden bg-amber-50 border border-amber-300 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                <div class="flex items-center space-x-3">
+                    <span class="text-2xl">🛡️</span>
+                    <div>
+                        <h4 class="text-sm font-bold text-amber-900" id="injury-alert-title">Q1 Injury Shield™ Activated</h4>
+                        <p class="text-xs text-amber-700">Sustained injury in Q1. Salary cap refunded. Q1 points wiped. Tap below to swap instantly!</p>
+                    </div>
+                </div>
+                <button onclick="openSwapModal('RB1')" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md transition">
+                    Swap Replacement Now
+                </button>
+            </div>
+
+            <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <h3 class="text-base font-bold text-slate-900">Your Active Starting Lineup</h3>
+                    <span class="text-xs font-semibold text-slate-500">9 Starters • $60k Max</span>
+                </div>
+                <div class="divide-y divide-slate-100" id="lineup-slots-container"></div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 2: H2H GAMECAST ================= -->
+        <div id="tab-content-matchup" class="space-y-6 hidden">
+            <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-6">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div>
+                        <span class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full uppercase" id="matchup-week-badge">Live Week Matchup</span>
+                        <h2 class="text-2xl font-extrabold text-slate-900 mt-2">Blue Eighty Legends vs. Apex Gridiron Club</h2>
+                    </div>
+                    <button onclick="simulateLivePlay()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md transition flex items-center space-x-1.5">
+                        <span>⚡</span>
+                        <span>Simulate Live Play</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center bg-slate-50 rounded-2xl p-6 border border-slate-200">
+                    <div class="text-center md:text-left">
+                        <p class="text-xs font-bold text-slate-500 uppercase">Your Blue Eighty Score</p>
+                        <p class="text-4xl font-extrabold text-blue-600 mono-num mt-1" id="h2h-user-score">0.0</p>
+                    </div>
+                    <div class="text-center space-y-2">
+                        <span class="text-xs font-bold text-slate-500 uppercase">Live Win Probability</span>
+                        <div class="w-full bg-slate-200 h-4 rounded-full overflow-hidden flex shadow-inner">
+                            <div id="win-prob-bar" class="bg-blue-600 h-full transition-all duration-500" style="width: 50%;"></div>
+                        </div>
+                        <div class="flex justify-between text-xs font-bold text-slate-600 px-1">
+                            <span>You (<span id="win-prob-pct">50</span>%)</span>
+                            <span>Opponent (50%)</span>
+                        </div>
+                    </div>
+                    <div class="text-center md:text-right">
+                        <p class="text-xs font-bold text-slate-500 uppercase">Opponent Score</p>
+                        <p class="text-4xl font-extrabold text-slate-800 mono-num mt-1" id="h2h-opp-score">104.5</p>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50/50 border border-blue-200 rounded-2xl p-4 flex items-start space-x-3">
+                    <span class="text-xl">🚨</span>
+                    <div>
+                        <h4 class="text-xs font-bold text-blue-900 uppercase tracking-wide">Live RedZone Ticker</h4>
+                        <p id="live-ticker-text" class="text-sm font-medium text-slate-800 mt-0.5">Live injury feed & match schedule connected.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 3: PLAYER MARKET ================= -->
+        <div id="tab-content-waivers" class="space-y-6 hidden">
+            <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="relative w-full sm:w-96">
+                        <input type="text" id="player-search" oninput="renderPlayerPool()" placeholder="Search players..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="flex items-center space-x-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+                        <button onclick="filterPos('ALL')" id="pos-btn-ALL" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white transition">All</button>
+                        <button onclick="filterPos('QB')" id="pos-btn-QB" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">QB</button>
+                        <button onclick="filterPos('RB')" id="pos-btn-RB" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">RB</button>
+                        <button onclick="filterPos('WR')" id="pos-btn-WR" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">WR</button>
+                        <button onclick="filterPos('TE')" id="pos-btn-TE" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">TE</button>
+                        <button onclick="filterPos('DEF')" id="pos-btn-DEF" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">DEF</button>
+                    </div>
+                </div>
+
+                <div id="api-loading-state" class="py-12 text-center text-slate-500 text-sm hidden">
+                    🔄 Syncing live Sleeper weekly projections & $60k market valuations...
+                </div>
+
+                <div class="overflow-x-auto" id="player-table-wrapper">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                <th class="py-3 px-4">Pos Rank</th>
+                                <th class="py-3 px-4">Player / Team / Matchup & Kickoff</th>
+                                <th class="py-3 px-4">Pos</th>
+                                <th class="py-3 px-4">Salary Tag</th>
+                                <th class="py-3 px-4">Sleeper Projected Proj.</th>
+                                <th class="py-3 px-4 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm font-medium text-slate-800" id="player-pool-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 4: TEAM SIGN-UP (12 MAX) ================= -->
+        <div id="tab-content-signup" class="space-y-6 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Sign Up Form -->
+                <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-5 lg:col-span-1">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900">Blue Eighty League Sign-Up</h3>
+                        <p class="text-xs text-slate-500 mt-1">Claim your spot in this 12-team weekly salary cap league.</p>
+                    </div>
+                    <form onsubmit="handleTeamRegistration(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Manager Name</label>
+                            <input type="text" id="reg-owner" required placeholder="e.g. Jonathan Davalos" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Team Name</label>
+                            <input type="text" id="reg-team" required placeholder="e.g. Blue Eighty Legends" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Email Address</label>
+                            <input type="email" id="reg-email" required placeholder="manager@example.com" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <button type="submit" id="reg-submit-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl text-xs font-bold shadow-md transition">
+                            Register Team (<span id="slots-left">12</span> Slots Remaining)
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Registered Teams List -->
+                <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4 lg:col-span-2">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <h3 class="text-base font-bold text-slate-900">Registered League Roster (12 Max)</h3>
+                        <span class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full"><span id="total-registered">0</span> / 12 Claimed</span>
+                    </div>
+                    <div class="divide-y divide-slate-100" id="registered-teams-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 5: STANDINGS ================= -->
+        <div id="tab-content-standings" class="space-y-6 hidden">
+            <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm p-6 space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Blue Eighty League Standings</h3>
+                        <p class="text-xs text-slate-500 mt-1">Live weekly H2H records and total points efficiency across all 12 managers.</p>
+                    </div>
+                    <button onclick="fetchStandingsFromSupabase()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition">
+                        🔄 Refresh Standings
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                <th class="py-3 px-4">Rank</th>
+                                <th class="py-3 px-4">Team & Manager</th>
+                                <th class="py-3 px-4 text-center">Record (W-L)</th>
+                                <th class="py-3 px-4 text-right">Total Points For</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm font-medium text-slate-800" id="standings-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- PLAYER DRAFT / SWAP MODAL -->
+    <div id="player-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-5 border border-slate-200">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 class="text-lg font-bold text-slate-900" id="modal-title">Select Player</h3>
+                <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center font-bold">✕</button>
+            </div>
+            <div class="relative">
+                <input type="text" id="modal-search" oninput="renderModalPlayers()" placeholder="Search position..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="max-h-96 overflow-y-auto space-y-2 divide-y divide-slate-100" id="modal-players-list"></div>
+        </div>
+    </div>
+
+    <!-- PLAYER BIO & DETAILS MODAL -->
+    <div id="bio-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-700 font-extrabold flex items-center justify-center text-sm" id="bio-pos-badge">QB</div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900" id="bio-name">Player Name</h3>
+                        <p class="text-xs text-slate-500" id="bio-team-pos">Team • Position</p>
+                    </div>
+                </div>
+                <button onclick="closeBioModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center font-bold">✕</button>
+            </div>
+            <div class="space-y-3 text-sm text-slate-700">
+                <div class="flex justify-between py-1.5 border-b border-slate-100">
+                    <span class="text-slate-500 font-medium">Matchup & Kickoff:</span>
+                    <span class="font-bold text-slate-900" id="bio-opponent">vs Opponent</span>
+                </div>
+                <div class="flex justify-between py-1.5 border-b border-slate-100">
+                    <span class="text-slate-500 font-medium">Defensive Rating:</span>
+                    <span class="font-bold text-indigo-600" id="bio-matchup-grade">Soft Matchup</span>
+                </div>
+                <div class="flex justify-between py-1.5 border-b border-slate-100">
+                    <span class="text-slate-500 font-medium">Sleeper Projected Proj:</span>
+                    <span class="font-bold text-blue-600 mono-num" id="bio-proj">0.0 pts</span>
+                </div>
+                <div class="flex justify-between py-1.5 border-b border-slate-100">
+                    <span class="text-slate-500 font-medium">Salary Cap Tag:</span>
+                    <span class="font-bold text-slate-900 mono-num" id="bio-salary">$0</span>
+                </div>
+                <div class="flex justify-between py-1.5">
+                    <span class="text-slate-500 font-medium">Status:</span>
+                    <span class="font-bold text-emerald-600" id="bio-injury">Healthy (Active)</span>
+                </div>
+            </div>
+            <div class="pt-2">
+                <button onclick="closeBioModal()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl text-xs font-bold transition">
+                    Close Profile
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUPABASE & APP LOGIC -->
+    <script>
+        const SUPABASE_URL = 'https://uukjaephotywsotgehfa.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_AZ9pczk-WtriqGaI_ECGFQ_zqqg3hMG';
+        
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let playerPool = [];
+        let teamOpponents = {}; 
+        let selectedPosFilter = 'ALL';
+        let isQ1InjuredActive = false;
+        let registeredTeams = [];
+        let leagueStandings = [];
+        let currentNFLWeek = 11;
+
+        function getCurrentNFLWeek() {
+            const seasonStartDate = new Date('2026-09-10T00:00:00');
+            const now = new Date();
+            if (now < seasonStartDate) return 1;
+            const diffTime = now - seasonStartDate;
+            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+            let calculatedWeek = Math.floor(diffDays / 7) + 1;
+            return Math.min(Math.max(calculatedWeek, 1), 18);
+        }
+
+        const defensiveMatchupRatings = {
+            'KC': { vsQB: 14, vsRB: 18, vsWR: 12, vsTE: 20 },
+            'BUF': { vsQB: 22, vsRB: 15, vsWR: 25, vsTE: 18 },
+            'BAL': { vsQB: 8, vsRB: 5, vsWR: 10, vsTE: 6 },
+            'PHI': { vsQB: 25, vsRB: 28, vsWR: 22, vsTE: 24 },
+            'CIN': { vsQB: 28, vsRB: 26, vsWR: 29, vsTE: 25 },
+            'MIA': { vsQB: 18, vsRB: 22, vsWR: 15, vsTE: 19 },
+            'ATL': { vsQB: 16, vsRB: 12, vsWR: 18, vsTE: 14 },
+            'DAL': { vsQB: 20, vsRB: 24, vsWR: 21, vsTE: 22 },
+            'MIN': { vsQB: 6, vsRB: 4, vsWR: 8, vsTE: 5 },
+            'DET': { vsQB: 12, vsRB: 10, vsWR: 14, vsTE: 11 },
+            'LAR': { vsQB: 15, vsRB: 14, vsWR: 16, vsTE: 17 },
+            'SF': { vsQB: 7, vsRB: 6, vsWR: 9, vsTE: 8 },
+            'NYJ': { vsQB: 5, vsRB: 8, vsWR: 6, vsTE: 7 },
+            'HOU': { vsQB: 9, vsRB: 11, vsWR: 7, vsTE: 10 },
+            'TB': { vsQB: 24, vsRB: 19, vsWR: 26, vsTE: 21 },
+            'WAS': { vsQB: 26, vsRB: 25, vsWR: 28, vsTE: 26 },
+            'ARI': { vsQB: 23, vsRB: 21, vsWR: 24, vsTE: 23 },
+            'GB': { vsQB: 13, vsRB: 16, vsWR: 15, vsTE: 12 },
+            'SEA': { vsQB: 19, vsRB: 20, vsWR: 19, vsTE: 21 },
+            'LV': { vsQB: 27, vsRB: 29, vsWR: 25, vsTE: 26 },
+            'DEN': { vsQB: 10, vsRB: 9, vsWR: 11, vsTE: 9 },
+            'IND': { vsQB: 21, vsRB: 23, vsWR: 20, vsTE: 22 },
+            'PIT': { vsQB: 11, vsRB: 7, vsWR: 13, vsTE: 12 },
+            'CLE': { vsQB: 4, vsRB: 13, vsWR: 5, vsTE: 13 },
+            'NE': { vsQB: 17, vsRB: 17, vsWR: 17, vsTE: 16 },
+            'NYG': { vsQB: 22, vsRB: 25, vsWR: 23, vsTE: 24 },
+            'TEN': { vsQB: 21, vsRB: 20, vsWR: 22, vsTE: 19 },
+            'JAX': { vsQB: 29, vsRB: 27, vsWR: 30, vsTE: 28 },
+            'NO': { vsQB: 18, vsRB: 15, vsWR: 19, vsTE: 17 },
+            'LAC': { vsQB: 9, vsRB: 10, vsWR: 10, vsTE: 11 },
+            'CAR': { vsQB: 30, vsRB: 31, vsWR: 31, vsTE: 29 },
+            'CHI': { vsQB: 16, vsRB: 14, vsWR: 17, vsTE: 15 }
+        };
+
+        let rosterSlots = [
+            { id: 'QB', label: 'Quarterback (QB)', player: null },
+            { id: 'RB1', label: 'Running Back 1 (RB)', player: null },
+            { id: 'RB2', label: 'Running Back 2 (RB)', player: null },
+            { id: 'WR1', label: 'Wide Receiver 1 (WR)', player: null },
+            { id: 'WR2', label: 'Wide Receiver 2 (WR)', player: null },
+            { id: 'WR3', label: 'Wide Receiver 3 (WR)', player: null },
+            { id: 'TE', label: 'Tight End (TE)', player: null },
+            { id: 'FLEX', label: 'FLEX (RB/WR/TE)', player: null },
+            { id: 'DEF', label: 'Defense / Special Teams', player: null }
+        ];
+
+        window.onload = async function() {
+            currentNFLWeek = getCurrentNFLWeek();
+            document.getElementById('current-slate-label').innerText = `Week ${currentNFLWeek} Slate`;
+            
+            await initSupabaseLeague();
+            await loadLiveSleeperAndESPNData(currentNFLWeek);
+            await fetchStandingsFromSupabase();
+        };
+
+        async function initSupabaseLeague() {
+            try {
+                await fetchTeamsFromSupabase();
+                _supabase
+                    .channel('public:league_teams')
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'league_teams' }, payload => {
+                        registeredTeams.push({ owner: payload.new.owner, team: payload.new.team_name, email: payload.new.email });
+                        renderRegisteredTeams();
+                    })
+                    .subscribe();
+            } catch (err) {
+                console.warn("Supabase connection warning:", err);
+            }
+        }
+
+        async function fetchTeamsFromSupabase() {
+            const { data, error } = await _supabase.from('league_teams').select('*');
+            if (!error && data) {
+                registeredTeams = data.map(t => ({ owner: t.owner, team: t.team_name, email: t.email }));
+                renderRegisteredTeams();
+            }
+        }
+
+        async function fetchStandingsFromSupabase() {
+            const { data, error } = await _supabase
+                .from('league_standings')
+                .select('*')
+                .order('wins', { ascending: false })
+                .order('points_for', { ascending: false });
+
+            if (!error && data) {
+                leagueStandings = data;
+                renderStandings();
+            } else {
+                renderStandingsFallback();
+            }
+        }
+
+        async function handleTeamRegistration(e) {
+            e.preventDefault();
+            if (registeredTeams.length >= 12) {
+                alert("League is currently full (12/12 teams registered).");
+                return;
+            }
+
+            const owner = document.getElementById('reg-owner').value.trim();
+            const team = document.getElementById('reg-team').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+
+            if (registeredTeams.some(t => t.team.toLowerCase() === team.toLowerCase())) {
+                alert("That team name is already taken! Please choose another.");
+                return;
+            }
+
+            const { error } = await _supabase
+                .from('league_teams')
+                .insert([{ owner: owner, team_name: team, email: email }]);
+
+            if (error) {
+                alert("Error registering team: " + error.message);
+                return;
+            }
+
+            document.getElementById('reg-owner').value = '';
+            document.getElementById('reg-team').value = '';
+            document.getElementById('reg-email').value = '';
+            alert(`Success! Team "${team}" is locked in for Blue Eighty.`);
+        }
+
+        async function loadLiveSleeperAndESPNData(weekNum) {
+            teamOpponents = {};
+            let teamOpponentCode = {};
+
+            const fallbackMatchupsWeek11 = {
+                'IND': { opp: 'HOU', isHome: false, time: 'Thu 8:15 PM' }, 'HOU': { opp: 'IND', isHome: true, time: 'Thu 8:15 PM' },
+                'MIA': { opp: 'BUF', isHome: false, time: 'Sun 1:00 PM' }, 'BUF': { opp: 'MIA', isHome: true, time: 'Sun 1:00 PM' },
+                'BAL': { opp: 'CAR', isHome: false, time: 'Sun 1:00 PM' }, 'CAR': { opp: 'BAL', isHome: true, time: 'Sun 1:00 PM' },
+                'NO': { opp: 'CHI', isHome: false, time: 'Sun 1:00 PM' }, 'CHI': { opp: 'NO', isHome: true, time: 'Sun 1:00 PM' },
+                'TEN': { opp: 'DAL', isHome: false, time: 'Sun 1:00 PM' }, 'DAL': { opp: 'TEN', isHome: true, time: 'Sun 1:00 PM' },
+                'TB': { opp: 'DET', isHome: false, time: 'Sun 1:00 PM' }, 'DET': { opp: 'TB', isHome: true, time: 'Sun 1:00 PM' },
+                'ARI': { opp: 'KC', isHome: false, time: 'Sun 1:00 PM' }, 'KC': { opp: 'ARI', isHome: true, time: 'Sun 1:00 PM' },
+                'PIT': { opp: 'PHI', isHome: false, time: 'Sun 1:00 PM' }, 'PHI': { opp: 'PIT', isHome: true, time: 'Sun 1:00 PM' },
+                'NYJ': { opp: 'LAC', isHome: false, time: 'Sun 4:05 PM' }, 'LAC': { opp: 'NYJ', isHome: true, time: 'Sun 4:05 PM' },
+                'JAX': { opp: 'NYG', isHome: false, time: 'Sun 4:25 PM' }, 'NYG': { opp: 'JAX', isHome: true, time: 'Sun 4:25 PM' },
+                'LV': { opp: 'DEN', isHome: false, time: 'Sun 4:25 PM' }, 'DEN': { opp: 'LV', isHome: true, time: 'Sun 4:25 PM' },
+                'MIN': { opp: 'SF', isHome: false, time: 'Sun 8:20 PM' }, 'SF': { opp: 'MIN', isHome: true, time: 'Sun 8:20 PM' },
+                'CIN': { opp: 'WAS', isHome: false, time: 'Mon 8:15 PM' }, 'WAS': { opp: 'CIN', isHome: true, time: 'Mon 8:15 PM' },
+                'NE': { opp: 'ATL', isHome: true, time: 'Sun 1:00 PM' }, 'ATL': { opp: 'NE', isHome: false, time: 'Sun 1:00 PM' },
+                'SEA': { opp: 'LAR', isHome: true, time: 'Sun 4:05 PM' }, 'LAR': { opp: 'SEA', isHome: false, time: 'Sun 4:05 PM' },
+                'GB': { opp: 'DET', isHome: true, time: 'Sun 1:00 PM' }, 'CLE': { opp: 'CIN', isHome: true, time: 'Sun 1:00 PM' }
+            };
+
+            Object.entries(fallbackMatchupsWeek11).forEach(([team, match]) => {
+                let venueTag = match.isHome ? `vs ${match.opp}` : `@ ${match.opp}`;
+                teamOpponents[team] = `${venueTag} (${match.time})`;
+                teamOpponentCode[team] = match.opp;
+            });
+
+            let rawDatabase = [
+                { name: 'Josh Allen', pos: 'QB', team: 'BUF', baseProj: 22.4, posRank: 1 },
+                { name: 'Lamar Jackson', pos: 'QB', team: 'BAL', baseProj: 21.1, posRank: 2 },
+                { name: 'Patrick Mahomes', pos: 'QB', team: 'KC', baseProj: 20.8, posRank: 3 },
+                { name: 'Christian McCaffrey', pos: 'RB', team: 'SF', baseProj: 19.4, posRank: 1 },
+                { name: 'Bijan Robinson', pos: 'RB', team: 'ATL', baseProj: 18.2, posRank: 2 },
+                { name: 'Saquon Barkley', pos: 'RB', team: 'PHI', baseProj: 17.8, posRank: 3 },
+                { name: 'CeeDee Lamb', pos: 'WR', team: 'DAL', baseProj: 19.5, posRank: 1 },
+                { name: 'Ja’Marr Chase', pos: 'WR', team: 'CIN', baseProj: 19.0, posRank: 2 },
+                { name: 'Justin Jefferson', pos: 'WR', team: 'MIN', baseProj: 18.4, posRank: 3 },
+                { name: 'Brock Bowers', pos: 'TE', team: 'LV', baseProj: 13.5, posRank: 1 },
+                { name: 'Travis Kelce', pos: 'TE', team: 'KC', baseProj: 12.8, posRank: 2 }
+            ];
+
+            const nflTeamsList = Object.keys(teamOpponents);
+            let defRankCounter = 0;
+            nflTeamsList.forEach(teamCode => {
+                defRankCounter++;
+                rawDatabase.push({
+                    name: `${teamCode} Defense`,
+                    pos: 'DEF',
+                    team: teamCode,
+                    baseProj: parseFloat((8.5 - ((defRankCounter - 1) * 0.15)).toFixed(1)),
+                    posRank: defRankCounter
+                });
+            });
+
+            playerPool = rawDatabase.map(p => {
+                let oppCode = teamOpponentCode[p.team];
+                let defRanks = oppCode && defensiveMatchupRatings[oppCode] ? defensiveMatchupRatings[oppCode] : { vsQB: 16, vsRB: 16, vsWR: 16, vsTE: 16 };
+                let defRankMetric = p.pos === 'QB' ? defRanks.vsQB : p.pos === 'RB' ? defRanks.vsRB : p.pos === 'WR' ? defRanks.vsWR : p.pos === 'TE' ? defRanks.vsTE : 16;
+                let salary = convertPointsToSalary(p.pos, p.baseProj, defRankMetric, p.posRank || 1, p.name);
+                let oppTag = teamOpponents[p.team] || 'vs OPP (Sun 1:00 PM)';
+                let grade = defRankMetric >= 22 ? '🔥 Soft Matchup' : defRankMetric <= 10 ? '🛡️ Lockdown Def' : '⚡ Neutral Spot';
+
+                return { ...p, opponent: oppTag, proj: p.baseProj, salary: salary, matchupGrade: grade };
+            });
+
+            initAppUI();
+            autoFillCap();
+        }
+
+        function convertPointsToSalary(position, projectedPoints, matchupGradeMetric, posRank, playerName) {
+            const uniqueOffset = ((hashCode(playerName) % 8) * 10);
+
+            if (position === 'DEF') {
+                const defBase = 2400 + (projectedPoints * 260) + uniqueOffset;
+                return Math.min(Math.max(Math.round(defBase / 10) * 10, 2800), 5500);
+            }
+
+            let floor = 3500;
+            let perPointRate = 220;
+
+            if (position === 'QB') { floor = 4000; perPointRate = 195; }
+            else if (position === 'RB') { floor = 3600; perPointRate = 245; }
+            else if (position === 'WR') { floor = 3500; perPointRate = 240; }
+            else if (position === 'TE') { floor = 3300; perPointRate = 250; }
+
+            const rawSalary = floor + (projectedPoints * perPointRate) + uniqueOffset;
+            const finalSalary = Math.round(rawSalary / 10) * 10;
+
+            return Math.min(Math.max(finalSalary, 3200), 9200);
+        }
+
+        function hashCode(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash |= 0;
+            }
+            return Math.abs(hash);
+        }
+
+        function initAppUI() {
+            document.getElementById('api-loading-state').classList.add('hidden');
+            document.getElementById('player-table-wrapper').classList.remove('hidden');
+            renderLineup();
+            renderPlayerPool();
+        }
+
+        function switchTab(tabId) {
+            ['lineup', 'matchup', 'waivers', 'signup', 'standings'].forEach(t => {
+                document.getElementById(`tab-content-${t}`).classList.add('hidden');
+                document.getElementById(`nav-${t}`).classList.remove('active', 'bg-blue-600', 'text-white', 'shadow-md');
+                document.getElementById(`nav-${t}`).classList.add('text-slate-600', 'hover:bg-slate-100');
+            });
+            document.getElementById(`tab-content-${tabId}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`nav-${tabId}`);
+            activeBtn.classList.add('active', 'bg-blue-600', 'text-white', 'shadow-md');
+            activeBtn.classList.remove('text-slate-600', 'hover:bg-slate-100');
+        }
+
+        function renderLineup() {
+            const container = document.getElementById('lineup-slots-container');
+            container.innerHTML = '';
+            let totalSpent = 0;
+            let totalProj = 0;
+            let emptySlots = 0;
+
+            rosterSlots.forEach((slot, idx) => {
+                if (slot.player) {
+                    totalSpent += slot.player.salary;
+                    totalProj += (slot.player.injuredQ1 && isQ1InjuredActive ? 0 : slot.player.proj);
+                } else {
+                    emptySlots++;
+                }
+
+                const isInjuredQ1 = slot.player && slot.player.injuredQ1 && isQ1InjuredActive;
+                const oppText = slot.player ? `${slot.player.team} (${slot.player.opponent})` : '';
+
+                container.innerHTML += `
+                    <div class="px-6 py-4 flex items-center justify-between hover:bg-slate-50/80 transition">
+                        <div class="flex items-center space-x-4">
+                            <span class="w-16 text-xs font-bold text-slate-400 uppercase">${slot.id}</span>
+                            <div>
+                                ${slot.player ? `
+                                    <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+                                        <p class="text-sm font-bold text-slate-900 cursor-pointer hover:text-blue-600 transition" onclick="openBioModal('${slot.player.name}')">${slot.player.name}</p>
+                                        <span class="text-xs font-semibold text-slate-500">${oppText}</span>
+                                        <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">${slot.player.matchupGrade || 'Neutral'}</span>
+                                        ${isInjuredQ1 ? `<span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full border border-red-200 animate-pulse">🛡️ Q1 INJURED</span>` : ''}
+                                    </div>
+                                    <p class="text-xs text-slate-500 font-medium mt-0.5">Salary: <strong class="mono-num text-slate-700">$${slot.player.salary.toLocaleString()}</strong> • Projected: ${slot.player.proj} pts</p>
+                                ` : `
+                                    <p class="text-sm font-medium text-slate-400 italic">Empty Slot</p>
+                                `}
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            ${isInjuredQ1 ? `
+                                <button onclick="openSwapModal('${slot.id}')" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs transition">
+                                    🛡️ Q1 Swap
+                                </button>
+                            ` : ''}
+                            <button onclick="openSwapModal('${slot.id}', ${idx})" class="bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-200 transition">
+                                ${slot.player ? 'Swap' : 'Add Player'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const remaining = 60000 - totalSpent;
+            document.getElementById('hud-remaining').innerHTML = `$${remaining.toLocaleString()} <span class="text-lg font-medium text-blue-300">Remaining</span>`;
+            const avg = emptySlots > 0 ? Math.round(remaining / emptySlots) : 0;
+            document.getElementById('hud-avg').innerText = `$${avg.toLocaleString()}`;
+
+            document.getElementById('hud-total-proj').innerHTML = `${totalProj.toFixed(1)} <span class="text-lg font-medium text-white">Total Pts</span>`;
+            const efficiency = totalSpent > 0 ? (totalProj / (totalSpent / 1000)).toFixed(2) : '0.0';
+            document.getElementById('hud-efficiency').innerText = `${efficiency} pts / $1k`;
+
+            document.getElementById('h2h-user-score').innerText = totalProj.toFixed(1);
+            let winProb = Math.min(Math.max(Math.round((totalProj / (totalProj + 104.5)) * 100), 5), 95);
+            document.getElementById('win-prob-bar').style.width = `${winProb}%`;
+            document.getElementById('win-prob-pct').innerText = winProb;
+        }
+
+        function triggerQ1Injury() {
+            isQ1InjuredActive = true;
+            document.getElementById('injury-banner').classList.remove('hidden');
+            const targetSlot = rosterSlots.find(s => s.player);
+            if (targetSlot) {
+                targetSlot.player.injuredQ1 = true;
+                targetSlot.player.proj = 0.0;
+            }
+            renderLineup();
+            switchTab('lineup');
+        }
+
+        let targetSlotIndex = null;
+        let targetPos = null;
+
+        function openSwapModal(slotId, index = 0) {
+            targetPos = slotId;
+            targetSlotIndex = index;
+            document.getElementById('modal-title').innerText = `Select Player (${slotId})`;
+            document.getElementById('player-modal').classList.remove('hidden');
+            renderModalPlayers();
+        }
+
+        function closeModal() {
+            document.getElementById('player-modal').classList.add('hidden');
+            isQ1InjuredActive = false;
+            document.getElementById('injury-banner').classList.add('hidden');
+        }
+
+        function openBioModal(playerName) {
+            const player = playerPool.find(p => p.name.toLowerCase() === playerName.toLowerCase()) || 
+                           rosterSlots.find(s => s.player && s.player.name.toLowerCase() === playerName.toLowerCase())?.player;
+            if (!player) return;
+
+            document.getElementById('bio-name').innerText = player.name;
+            document.getElementById('bio-pos-badge').innerText = player.pos;
+            document.getElementById('bio-team-pos').innerText = `${player.team} • Position: ${player.pos} (Rank #${player.posRank || 1})`;
+            document.getElementById('bio-opponent').innerText = player.opponent || 'vs Opponent';
+            document.getElementById('bio-matchup-grade').innerText = player.matchupGrade || 'Neutral Spot';
+            document.getElementById('bio-proj').innerText = `${player.proj} pts`;
+            document.getElementById('bio-salary').innerText = `$${(player.salary || 5000).toLocaleString()}`;
+
+            document.getElementById('bio-modal').classList.remove('hidden');
+        }
+
+        function closeBioModal() {
+            document.getElementById('bio-modal').classList.add('hidden');
+        }
+
+        function renderModalPlayers() {
+            const list = document.getElementById('modal-players-list');
+            const query = document.getElementById('modal-search').value.toLowerCase();
+            list.innerHTML = '';
+
+            const filtered = playerPool.filter(p => {
+                const matchQuery = p.name.toLowerCase().includes(query) || p.team.toLowerCase().includes(query);
+                
+                let matchPos = false;
+                if (targetPos === 'QB') {
+                    matchPos = (p.pos === 'QB');
+                } else if (targetPos && targetPos.startsWith('RB')) {
+                    matchPos = (p.pos === 'RB');
+                } else if (targetPos && targetPos.startsWith('WR')) {
+                    matchPos = (p.pos === 'WR');
+                } else if (targetPos === 'TE') {
+                    matchPos = (p.pos === 'TE');
+                } else if (targetPos === 'FLEX') {
+                    matchPos = ['RB', 'WR', 'TE'].includes(p.pos);
+                } else if (targetPos === 'DEF') {
+                    matchPos = (p.pos === 'DEF');
+                }
+
+                return matchQuery && matchPos;
+            });
+
+            filtered.forEach(p => {
+                list.innerHTML += `
+                    <div class="py-3 flex items-center justify-between hover:bg-slate-50 px-3 rounded-xl transition">
+                        <div class="flex items-center space-x-3">
+                            <span class="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-xs">#${p.posRank || 1}</span>
+                            <div>
+                                <p class="text-sm font-bold text-slate-900 cursor-pointer hover:text-blue-600 transition" onclick="openBioModal('${p.name}')">${p.name} <span class="text-xs font-semibold text-blue-600">(${p.pos} - ${p.team} ${p.opponent})</span></p>
+                                <p class="text-xs text-slate-500"><span class="text-indigo-600 font-bold">${p.matchupGrade}</span> • Salary: <strong class="mono-num text-slate-700">$${p.salary.toLocaleString()}</strong> • Proj: ${p.proj} pts</p>
+                            </div>
+                        </div>
+                        <button onclick="confirmSwap('${p.name}', '${p.pos}', '${p.team}', '${p.opponent}', ${p.salary}, ${p.proj}, '${p.matchupGrade}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition">
+                            Draft
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        function confirmSwap(name, pos, team, opponent, salary, proj, matchupGrade) {
+            const isAlreadyDrafted = rosterSlots.some((slot, idx) => slot.player && slot.player.name.toLowerCase() === name.toLowerCase() && idx !== targetSlotIndex);
+            if (isAlreadyDrafted) {
+                alert(`${name} is already locked into another roster spot. You cannot select the same player twice!`);
+                return;
+            }
+
+            if (targetSlotIndex !== null) {
+                rosterSlots[targetSlotIndex].player = { name, pos, team, opponent, salary, proj, matchupGrade };
+            }
+            closeModal();
+            renderLineup();
+        }
+
+        function autoFillCap() {
+            if (playerPool.length < 9) {
+                alert("Player pool is still syncing. Please wait a second.");
+                return;
+            }
+
+            const qbs = playerPool.filter(p => p.pos === 'QB').sort((a, b) => a.salary - b.salary);
+            const rbs = playerPool.filter(p => p.pos === 'RB').sort((a, b) => a.salary - b.salary);
+            const wrs = playerPool.filter(p => p.pos === 'WR').sort((a, b) => a.salary - b.salary);
+            const tes = playerPool.filter(p => p.pos === 'TE').sort((a, b) => a.salary - b.salary);
+            const defs = playerPool.filter(p => p.pos === 'DEF').sort((a, b) => a.salary - b.salary);
+
+            let draftedNames = new Set();
+
+            function getBudgetUnique(pool) {
+                let budgetPool = pool.slice(0, Math.max(Math.floor(pool.length / 2), 1));
+                let extendedPool = [...budgetPool, ...pool];
+                for (let p of extendedPool) {
+                    if (!draftedNames.has(p.name)) {
+                        draftedNames.add(p.name);
+                        return { ...p };
+                    }
+                }
+                return pool[0] ? { ...pool[0] } : null;
+            }
+
+            let candidateSlots = [
+                { id: 'QB', pool: qbs, player: getBudgetUnique(qbs) },
+                { id: 'RB1', pool: rbs, player: getBudgetUnique(rbs) },
+                { id: 'RB2', pool: rbs, player: getBudgetUnique(rbs) },
+                { id: 'WR1', pool: wrs, player: getBudgetUnique(wrs) },
+                { id: 'WR2', pool: wrs, player: getBudgetUnique(wrs) },
+                { id: 'WR3', pool: wrs, player: getBudgetUnique(wrs) },
+                { id: 'TE', pool: tes, player: getBudgetUnique(tes) },
+                { id: 'FLEX', pool: [...rbs, ...wrs, ...tes], player: getBudgetUnique([...rbs, ...wrs, ...tes]) },
+                { id: 'DEF', pool: defs, player: getBudgetUnique(defs) }
+            ];
+
+            let totalSalary = candidateSlots.reduce((sum, slot) => sum + (slot.player ? slot.player.salary : 0), 0);
+
+            let safetyCounter = 0;
+            while (totalSalary > 60000 && safetyCounter < 500) {
+                safetyCounter++;
+
+                let activeSlots = candidateSlots.filter(s => s.player !== null);
+                if (activeSlots.length === 0) break;
+
+                activeSlots.sort((a, b) => b.player.salary - a.player.salary);
+                let targetSlot = activeSlots[0];
+
+                let cheaper = targetSlot.pool.find(p => p.salary < targetSlot.player.salary && !draftedNames.has(p.name));
+                if (cheaper) {
+                    draftedNames.delete(targetSlot.player.name);
+                    draftedNames.add(cheaper.name);
+                    targetSlot.player = { ...cheaper };
+                } else {
+                    let allAvailable = playerPool.filter(p => !draftedNames.has(p.name)).sort((a, b) => a.salary - b.salary);
+                    if (allAvailable.length > 0) {
+                        let cheapest = allAvailable[0];
+                        draftedNames.delete(targetSlot.player.name);
+                        draftedNames.add(cheapest.name);
+                        targetSlot.player = { ...cheapest };
+                    } else {
+                        break;
+                    }
+                }
+
+                totalSalary = candidateSlots.reduce((sum, slot) => sum + (slot.player ? slot.player.salary : 0), 0);
+            }
+
+            rosterSlots = candidateSlots.map(s => ({
+                id: s.id,
+                label: s.id,
+                player: s.player
+            }));
+
+            isQ1InjuredActive = false;
+            document.getElementById('injury-banner').classList.add('hidden');
+            renderLineup();
+        }
+
+        function resetLineup() {
+            rosterSlots.forEach(s => s.player = null);
+            isQ1InjuredActive = false;
+            document.getElementById('injury-banner').classList.add('hidden');
+            renderLineup();
+        }
+
+        function filterPos(pos) {
+            selectedPosFilter = pos;
+            ['ALL', 'QB', 'RB', 'WR', 'TE', 'DEF'].forEach(p => {
+                let btn = document.getElementById(`pos-btn-${p}`);
+                if (btn) {
+                    btn.className = p === pos ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white transition' : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition';
+                }
+            });
+            renderPlayerPool();
+        }
+
+        function renderPlayerPool() {
+            const tbody = document.getElementById('player-pool-tbody');
+            const searchInput = document.getElementById('player-search');
+            if (!tbody || !searchInput) return;
+            
+            const query = searchInput.value.toLowerCase();
+            tbody.innerHTML = '';
+
+            const filtered = playerPool.filter(p => {
+                const matchQuery = p.name.toLowerCase().includes(query) || p.team.toLowerCase().includes(query);
+                const matchPos = selectedPosFilter === 'ALL' || p.pos === selectedPosFilter;
+                return matchQuery && matchPos;
+            });
+
+            filtered.forEach(p => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                        <td class="py-3 px-4 font-bold text-slate-500">#${p.posRank || 1}</td>
+                        <td class="py-3 px-4 font-bold text-slate-900">
+                            <span class="cursor-pointer hover:text-blue-600 transition" onclick="openBioModal('${p.name}')">${p.name}</span> 
+                            <span class="text-xs font-semibold text-slate-500">(${p.team} <span class="text-blue-600">${p.opponent}</span>)</span> 
+                            <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded ml-1">${p.matchupGrade}</span>
+                        </td>
+                        <td class="py-3 px-4"><span class="bg-slate-100 text-slate-700 text-xs font-bold px-2 py-0.5 rounded-md">${p.pos}</span></td>
+                        <td class="py-3 px-4 mono-num font-bold text-slate-800">$${p.salary.toLocaleString()}</td>
+                        <td class="py-3 px-4 mono-num text-blue-600 font-bold">${p.proj} pts</td>
+                        <td class="py-3 px-4 text-right">
+                            <button onclick="switchTab('lineup')" class="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1.5 rounded-xl text-xs font-bold transition">
+                                View Lineup
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderRegisteredTeams() {
+            const container = document.getElementById('registered-teams-container');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            const count = registeredTeams.length;
+            const slotsLeft = 12 - count;
+            document.getElementById('signups-count').innerText = count;
+            document.getElementById('total-registered').innerText = count;
+            document.getElementById('slots-left').innerText = slotsLeft;
+
+            if (count === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 italic py-4 text-center">No teams registered yet. Be the first!</p>`;
+                return;
+            }
+
+            registeredTeams.forEach((t, i) => {
+                container.innerHTML += `
+                    <div class="py-3 flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <span class="w-7 h-7 rounded-full bg-blue-100 text-blue-800 font-bold flex items-center justify-center text-xs">${i + 1}</span>
+                            <div>
+                                <p class="font-bold text-slate-900">${t.team}</p>
+                                <p class="text-xs text-slate-500">Manager: ${t.owner} • ${t.email}</p>
+                            </div>
+                        </div>
+                        <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full">Confirmed Spot</span>
+                    </div>
+                `;
+            });
+
+            if (count >= 12) {
+                document.getElementById('reg-submit-btn').disabled = true;
+                document.getElementById('reg-submit-btn').innerText = "League Full (12/12)";
+                document.getElementById('reg-submit-btn').className = "w-full bg-slate-300 text-slate-500 py-3 rounded-xl text-xs font-bold cursor-not-allowed";
+            }
+        }
+
+        function renderStandings() {
+            const tbody = document.getElementById('standings-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (leagueStandings.length === 0) {
+                renderStandingsFallback();
+                return;
+            }
+
+            leagueStandings.forEach((st, idx) => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                        <td class="py-3 px-4 font-extrabold text-blue-600">#${idx + 1}</td>
+                        <td class="py-3 px-4 font-bold text-slate-900">
+                            ${st.team_name} 
+                            <span class="text-xs font-semibold text-slate-500 block">Manager: ${st.manager_name}</span>
+                        </td>
+                        <td class="py-3 px-4 text-center mono-num font-bold text-slate-800">${st.wins} - ${st.losses}</td>
+                        <td class="py-3 px-4 text-right mono-num font-bold text-blue-600">${parseFloat(st.points_for).toFixed(1)} pts</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderStandingsFallback() {
+            const tbody = document.getElementById('standings-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (registeredTeams.length > 0) {
+                registeredTeams.forEach((t, idx) => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                            <td class="py-3 px-4 font-extrabold text-slate-400">#${idx + 1}</td>
+                            <td class="py-3 px-4 font-bold text-slate-900">
+                                ${t.team} 
+                                <span class="text-xs font-semibold text-slate-500 block">Manager: ${t.owner}</span>
+                            </td>
+                            <td class="py-3 px-4 text-center mono-num font-bold text-slate-800">0 - 0</td>
+                            <td class="py-3 px-4 text-right mono-num font-bold text-blue-600">0.0 pts</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 italic">No registered teams found in the league yet.</td></tr>`;
+            }
+        }
+
+        function simulateLivePlay() {
+            const tickers = [
+                "Schedule API Feed: Live game matchups & defensive ratings active for Week " + currentNFLWeek + ".",
+                "GameCast: Mahomes 24-yard deep pass to CeeDee Lamb for a TOUCHDOWN! (+8.4 pts)",
+                "GameCast: Bijan Robinson rushes up the middle for 18 yards and a First Down!"
+            ];
+            document.getElementById('live-ticker-text').innerText = tickers[Math.floor(Math.random() * tickers.length)];
+        }
+    </script>
+</body>
+</html>

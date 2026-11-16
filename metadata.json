@@ -1,0 +1,6 @@
+{
+  "name": "Blue Eighty",
+  "description": "Weekly $60k salary cap and head-to-head fantasy football platform with Q1 Injury Shield and live league standings.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
